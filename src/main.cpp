@@ -157,7 +157,7 @@ void setup() {
   connectToMQTTBroker();
   mainLoopCounter = 0;
 
- 
+ // set up old values
   M5.Imu.getAccelData(&oldAccelX, &oldAccelY, &oldAccelZ);
 }
 
