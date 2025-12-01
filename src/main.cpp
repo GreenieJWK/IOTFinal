@@ -26,6 +26,12 @@ const char* gyro = "gyro";
 const char* x = "x";
 const char* z = "z";
 
+const float shakeThreshold = 1.5;
+float oldAccelX = 0;
+float oldAccelY = 0;
+float oldAccelZ = 0;
+
+
 
 const std::string mqtt_base = "SENG3030/Thursday/" + mqtt_username + "/";
 const std::string mqtt_battery = mqtt_base + "battery";
@@ -116,6 +122,7 @@ void setup_wifi(void);
 void connectToMQTTBroker(void);
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void send_mqtt_message(const std::string& topic, void* message);
+void shakeWake(void);
 
 void setup() {
   M5.begin();
@@ -149,6 +156,9 @@ void setup() {
   client.setCallback(mqttCallback);
   connectToMQTTBroker();
   mainLoopCounter = 0;
+
+ 
+  M5.Imu.getAccelData(&oldAccelX, &oldAccelY, &oldAccelZ);
 }
 
 
@@ -299,6 +309,15 @@ void loop() {
     mainLoopCounter = 0;
   }
   mainLoopCounter++;
+
+  // FOR SHAKE------------
+  auto imu_update = M5.Imu.update();
+  if (imu_update)
+  {
+    shakeWake();
+  }
+  //----------------------
+  
 }
 
 void send_mqtt_message(const std::string& topic, void* message) {
@@ -371,18 +390,15 @@ void read_unit_env(void)
   int voltage = M5.Power.getBatteryVoltage();
   Serial.print("Battery Voltage: ");
   Serial.println(voltage);
+
+
 }
 
 int get_Button_Presses(void)
 {
   M5.update();  // Required to get states
   if (M5.BtnA.wasPressed()) {
-    carsolCounter+= 1;
-
-    if(carsolCounter > 4)
-    {
-      carsolCounter = 0;
-    }  
+    
     return 1;
   }
   if (M5.BtnB.wasPressed()) {
@@ -610,5 +626,40 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
       break;
     }
    
+}
+
+//------------------ UI
+
+void shakeWake(void)
+{
+  // get accel values
+  auto imu_update = M5.Imu.update();
+  float accelX = 0;
+  float accelY = 0;
+  float accelZ = 0;
+  M5.Imu.getAccelData(&accelX, &accelY, &accelZ);
+  
+  // calculate delta to see if shake was big enough to change
+  float deltaX = abs(accelX - oldAccelX);
+  float deltaY = abs(accelY - oldAccelY);
+  float deltaZ = abs(accelZ - oldAccelZ);
+
+  float delta = deltaX + deltaY + deltaZ;
+  
+  
+  if(delta > shakeThreshold)
+  {
+    // change whats to be displayed
+    carsolCounter+= 1;
+    if (carsolCounter > 4)
+    {
+      carsolCounter = 0;
+    }  
+  }
+
+  // change old values 
+  oldAccelX = accelX;
+  oldAccelY = accelY;
+  oldAccelZ = accelZ;
 }
 
